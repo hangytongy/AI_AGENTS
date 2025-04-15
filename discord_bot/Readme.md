@@ -1,6 +1,6 @@
 ### Steps to run
 
-1. '''sudo apt install python3 python3-pip -y'''
+1. ```sudo apt install python3 python3-pip -y```
 2. git clone https://github.com/hangytongy/AI_AGENTS.git
 3. cd AI_AGENTS/discord_bot
 4. python3 -m venv venv
