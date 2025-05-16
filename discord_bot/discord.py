@@ -3,6 +3,7 @@
 #Prints out messages from other users
 #Automatically replies to those messages, mentioning the user and repeating their message content
 
+
 import requests
 import json
 import websocket
@@ -22,7 +23,13 @@ USER_TOKEN = os.getenv("USER_TOKEN")
 # The ID of the channel you want to monitor
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
+# Track last message time and last bot message time
+last_message_time = time.time()
+
 def send_message(channel_id, message_content, reply_to_message_id=None):
+    global last_message_time
+    
+
     headers = {
         "Authorization": USER_TOKEN,
         "Content-Type": "application/json"
@@ -45,9 +52,24 @@ def send_message(channel_id, message_content, reply_to_message_id=None):
     
     if response.status_code == 200:
         print("Message sent successfully!")
+        last_message_time = time.time()  # Update last bot message time
     else:
         print(f"Failed to send message. Status code: {response.status_code}")
         print(f"Response: {response.text}")
+
+def check_inactive():
+    global last_message_time
+    while True:
+        current_time = time.time()
+        time_since_last_message = current_time - last_message_time
+        
+        # Only send a new message if it's been at least X minutes since our last bot message
+        if time_since_last_message >= 200:  
+            print("Channel inactive for 5 minutes, sending conversation starter...")
+            prompt = "Generate a random new conversation starter message"
+            message = agent.call_agent(prompt)
+            send_message(CHANNEL_ID, message)
+        time.sleep(60)  # Check every minute
 
 def on_message(ws, message):
     data = json.loads(message)
@@ -66,16 +88,30 @@ def on_message(ws, message):
             content = message_data.get("content", "")
             message_id = message_data.get("id")
             
+            # Check if bot is mentioned
+            mentions = message_data.get("mentions", [])
+            bot_mentioned = any(mention.get("id") == get_user_id() for mention in mentions)
+            
+            # Check if message is a direct reply to bot's message only
+            referenced_message = message_data.get("referenced_message", {})
+            replying_to_bot = False
+            if referenced_message:
+                # Only set to True if the referenced message is from our bot
+                if referenced_message.get("author", {}).get("id") == get_user_id():
+                    replying_to_bot = True
+            
             print(f"Message from {author}: {content}")
             
-            #change the content here to use AI to generate the reply content instead
-            query_output = agent.call_agent(content)
-            num = random.randint(3,20)
-            time.sleep(num)
-            
-            # Reply to the message
-            reply_content = f"{query_output}"
-            send_message(CHANNEL_ID, reply_content, message_id)
+            # Only respond if bot is mentioned or message is directly replying to bot
+            if bot_mentioned or replying_to_bot:
+                # Generate response using agent
+                response = agent.call_agent(content)
+                
+                # Add delay before responding
+                time.sleep(120)  # Reduced delay to 2 seconds for better interaction
+                
+                # Send response as reply
+                send_message(CHANNEL_ID, response, message_id)
 
 def on_error(ws, error):
     print(f"Error: {error}")
@@ -146,6 +182,11 @@ def start_listening():
                               on_error=on_error,
                               on_close=on_close)
     
+    # Start the inactivity checker thread
+    inactive_checker = threading.Thread(target=check_inactive)
+    inactive_checker.daemon = True
+    inactive_checker.start()
+    
     ws.run_forever()
 
 if __name__ == "__main__":
@@ -155,6 +196,9 @@ if __name__ == "__main__":
         print(f"Connected as user ID: {user_id}")
         print(f"Monitoring channel ID: {CHANNEL_ID}")
         print("Waiting for messages...")
+        prompt = "Generate a random new conversation starter message"
+        message = agent.call_agent(prompt)
+        send_message(CHANNEL_ID, message)
         start_listening()
     else:
         print("Failed to authenticate. Check your token.")

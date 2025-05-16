@@ -17,8 +17,10 @@ class ConversationResponse(BaseModel):
     context_used: list[str]  # What context/tools were used to form response
 
 llm = ChatOpenAI(model="gpt-4o-mini")
-
 parser = PydanticOutputParser(pydantic_object=ConversationResponse)
+
+# Initialize memory structure
+short_term_memory = []
 
 prompt = ChatPromptTemplate.from_messages(
     [
@@ -50,8 +52,12 @@ agent = create_tool_calling_agent(
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
 def call_agent(query):
+    global short_term_memory
     if query:
-        raw_response = agent_executor.invoke({"query": query})
+        # Update short-term memory
+        short_term_memory.append(("human", query))  # Store as a tuple with role
+
+        raw_response = agent_executor.invoke({"query": query, "chat_history": short_term_memory})
 
         try:
             structured_response = parser.parse(raw_response.get("output"))

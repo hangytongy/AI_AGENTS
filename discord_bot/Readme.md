@@ -32,3 +32,13 @@ systemctl daemon-reload
 systemctl enable discord.service
 systemctl start discord.service
 ```
+
+### updates
+
+- added short term memory functionality 
+- made sure it only replies to mentions and replies to the bot
+- creates a convo starter should no one replies it after X amount of time
+
+### future upgrades
+
+- Added RAG expect
