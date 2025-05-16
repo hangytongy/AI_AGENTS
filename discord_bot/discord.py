@@ -64,7 +64,7 @@ def check_inactive():
         time_since_last_message = current_time - last_message_time
         
         # Only send a new message if it's been at least X minutes since our last bot message
-        if time_since_last_message >= 200:  
+        if time_since_last_message >= 300:  
             print("Channel inactive for 5 minutes, sending conversation starter...")
             prompt = "Generate a random new conversation starter message"
             message = agent.call_agent(prompt)
